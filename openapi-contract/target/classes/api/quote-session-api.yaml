@@ -1,0 +1,577 @@
+openapi: 3.0.3
+info:
+  title: Quote Session API
+  version: 1.0.0
+
+tags:
+- name: QuoteSession
+  description: Session lifecycle management
+- name: Driver
+  description: Driver management
+- name: Vehicle
+  description: Vehicle management
+- name: Coverage
+  description: Coverage selection
+- name: Review
+  description: Full session review
+
+paths:
+
+  /api/v1/quote-session/start:
+    post:
+      tags: [ QuoteSession ]
+      operationId: startQuoteSession
+      summary: Start a new quote application with customer identity and address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteSessionStartRequest'
+      responses:
+        '201':
+          description: Quote application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteSessionResponse'
+        '409':
+          description: Customer already has an active quote application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/quote-session/{quoteReferenceId}/drivers:
+    post:
+      tags: [ Driver ]
+      operationId: addDrivers
+      summary: Add one or more drivers. Call this before adding vehicles.
+      parameters:
+      - name: quoteReferenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverListRequest'
+      responses:
+        '201':
+          description: Drivers added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverListResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Quote application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/quote-session/{quoteReferenceId}/vehicles:
+    post:
+      tags: [ Vehicle ]
+      operationId: addVehicles
+      summary: Add one or more vehicles. Drivers must be added first.
+      parameters:
+      - name: quoteReferenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleListRequest'
+      responses:
+        '201':
+          description: Vehicles added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleListResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Quote application or driver not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/quote-session/{quoteReferenceId}/coverage:
+    post:
+      tags: [ Coverage ]
+      operationId: saveCoverageSelection
+      summary: Save customer coverage tier and deductible selection
+      parameters:
+      - name: quoteReferenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoverageSelectionRequest'
+      responses:
+        '200':
+          description: Coverage selection saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageSelectionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Quote application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/quote-session/{quoteReferenceId}/review:
+    get:
+      tags: [ Review ]
+      operationId: reviewSession
+      summary: Get full snapshot of quote application
+      parameters:
+      - name: quoteReferenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Full quote application review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionReviewResponse'
+        '404':
+          description: Quote application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+
+    QuoteSessionStartRequest:
+      type: object
+      required: [ firstName, lastName, dateOfBirth, email, street, city, state, zipCode ]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        middleInitial:
+          type: string
+          maxLength: 1
+        suffix:
+          type: string
+          maxLength: 10
+        dateOfBirth:
+          type: string
+          format: date
+        email:
+          type: string
+          format: email
+        street:
+          type: string
+          maxLength: 200
+        aptUnit:
+          type: string
+          maxLength: 50
+        city:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          minLength: 2
+          maxLength: 2
+        zipCode:
+          type: string
+        poBox:
+          type: boolean
+          default: false
+
+    QuoteSessionResponse:
+      type: object
+      properties:
+        quoteReferenceId:
+          type: string
+          format: uuid
+          description: Unique reference ID for this quote application
+        customerId:
+          type: string
+          format: uuid
+          description: Permanent customer identifier derived from email
+        status:
+          type: string
+          enum: [ IN_PROGRESS, COMPLETED, EXPIRED ]
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        street:
+          type: string
+        aptUnit:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DriverListRequest:
+      type: object
+      required: [ drivers ]
+      properties:
+        drivers:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DriverRequest'
+
+    DriverRequest:
+      type: object
+      required: [ firstName, lastName, dateOfBirth, gender, maritalStatus, primaryResidence, licenseType, licenseStatus, yearsLicensed, defensiveCourse, accidents, violations, sr22Required ]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [ MALE, FEMALE ]
+        maritalStatus:
+          type: string
+          enum: [ SINGLE, MARRIED, DOMESTIC_PARTNER, WIDOWED, SEPARATED, DIVORCED ]
+        ssn:
+          type: string
+        licenseNumber:
+          type: string
+          maxLength: 20
+          description: Driver license number. First character used for CLUE verification.
+        primaryResidence:
+          type: string
+          enum: [ OWN, RENT, LIVES_WITH_PARENTS, OTHER ]
+        licenseType:
+          type: string
+          enum: [ PERSONAL, COMMERCIAL, INTERNATIONAL, PERMIT, NONE ]
+        licenseStatus:
+          type: string
+          enum: [ VALID, EXPIRED, SUSPENDED, REVOKED, SURRENDERED, NEVER_LICENSED ]
+        yearsLicensed:
+          type: string
+          enum: [ LESS_THAN_1, ONE_TO_2, TWO_TO_3, THREE_OR_MORE ]
+        defensiveCourse:
+          type: boolean
+        accidents:
+          type: boolean
+        violations:
+          type: boolean
+        sr22Required:
+          type: boolean
+        numberOfAccidents:
+          type: integer
+          minimum: 0
+          description: Total number of at-fault accidents in last 5 years
+        activeTickets:
+          type: integer
+          minimum: 0
+          description: Number of active moving violations or tickets
+
+    DriverListResponse:
+      type: object
+      properties:
+        quoteReferenceId:
+          type: string
+          format: uuid
+        drivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverResponse'
+
+    DriverResponse:
+      type: object
+      properties:
+        driverId:
+          type: string
+          format: uuid
+        quoteReferenceId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+        maritalStatus:
+          type: string
+        primaryResidence:
+          type: string
+        licenseType:
+          type: string
+        licenseStatus:
+          type: string
+        licenseNumber:
+          type: string
+          description: Driver license number
+        yearsLicensed:
+          type: string
+        defensiveCourse:
+          type: boolean
+        accidents:
+          type: boolean
+        violations:
+          type: boolean
+        sr22Required:
+          type: boolean
+        numberOfAccidents:
+          type: integer
+        activeTickets:
+          type: integer
+        ssnMasked:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    VehicleListRequest:
+      type: object
+      required: [ vehicles ]
+      properties:
+        vehicles:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VehicleRequest'
+
+    VehicleRequest:
+      type: object
+      required: [ year, make, model, vehicleUse, primaryZip, ownership, annualMileage, primaryDriverId ]
+      properties:
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        make:
+          type: string
+          maxLength: 100
+        model:
+          type: string
+          maxLength: 100
+        vin:
+          type: string
+          minLength: 17
+          maxLength: 17
+          description: Full 17-character VIN. Last 6 digits stored, rest masked.
+        vehicleUse:
+          type: string
+          enum: [ PLEASURE, COMMUTE, BUSINESS, FARM ]
+        rideshare:
+          type: boolean
+          default: false
+        primaryZip:
+          type: string
+        ownership:
+          type: string
+          enum: [ OWN, LEASE, FINANCE ]
+        yearsOwned:
+          type: string
+          enum: [ LESS_THAN_1, ONE_TO_2, TWO_TO_3, THREE_TO_4, FIVE_OR_MORE ]
+        annualMileage:
+          type: string
+          enum: [ UNDER_5000, FIVE_TO_7499, SEVEN500_TO_9999, TEN000_TO_11999, TWELVE000_TO_13999, FOURTEEN000_TO_15999, SIXTEEN000_OR_MORE ]
+        primaryDriverId:
+          type: string
+          format: uuid
+          description: UUID of the primary driver for this vehicle
+
+    VehicleListResponse:
+      type: object
+      properties:
+        quoteReferenceId:
+          type: string
+          format: uuid
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleResponse'
+
+    VehicleResponse:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        quoteReferenceId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        make:
+          type: string
+        model:
+          type: string
+        vinMasked:
+          type: string
+          description: Masked VIN showing only last 6 characters
+        vehicleUse:
+          type: string
+        rideshare:
+          type: boolean
+        primaryZip:
+          type: string
+        ownership:
+          type: string
+        annualMileage:
+          type: string
+        primaryDriverId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    CoverageSelectionRequest:
+      type: object
+      required: [ coverageTierId, deductibleAmount ]
+      properties:
+        coverageTierId:
+          type: string
+          enum: [ BASIC, CHOICE, RECOMMENDED ]
+          description: Coverage tier selected by customer
+        deductibleAmount:
+          type: integer
+          enum: [ 250, 500, 1000, 2000 ]
+          description: Deductible amount in dollars
+
+    CoverageSelectionResponse:
+      type: object
+      properties:
+        quoteReferenceId:
+          type: string
+          format: uuid
+        coverageTierId:
+          type: string
+          enum: [ BASIC, CHOICE, RECOMMENDED ]
+        deductibleAmount:
+          type: integer
+        savedAt:
+          type: string
+          format: date-time
+
+    SessionReviewResponse:
+      type: object
+      properties:
+        quoteReferenceId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        coverageTierId:
+          type: string
+          description: Coverage tier selected by customer
+        deductibleAmount:
+          type: integer
+          description: Deductible amount selected by customer
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleResponse'
+        drivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: array
+          items:
+            type: string

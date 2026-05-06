@@ -1,0 +1,14 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: quote-session-service
+
+aws:
+  dynamodb:
+    region: us-east-1
+    tables:
+      quote-sessions: quote_sessions
+      session-vehicles: session_vehicles
+      session-drivers: session_drivers
